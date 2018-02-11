@@ -1,0 +1,150 @@
+%%% sarayut pongsanthia m5842445 %%%
+%%% final examination robotic %%%
+
+%%% draw wire frame half sphere with articulated arm 3 dof %%%%%%
+
+%%% input link length %%%
+L1 = 0; L2 = 5; L3 = 5;
+
+%%% reserve space data for speed %%%
+xv = zeros(1,180);   yv = zeros(1,180);   zv = zeros(1,180); mxv = zeros(length(j),180); myv = zeros(length(j),180); mzv = zeros(length(j),180);
+xh = zeros(1,360);   yh = zeros(1,360);   zh = zeros(1,360); mxh = zeros(7,360); myh = zeros(7,360); mzh = zeros(7,360);
+
+q3 = 0;   %%% theta 3 was fixed with as 0 degree %%%
+
+%%%% verticle line of sphere %%%%
+j = 15:15:180;  %%% dergree of verticle line
+loopcntv = 0;   %%% counting times vertical loops
+for jx = 1 : length(j)         
+    q1 = j(jx);   %%% theta 1 rotate around y-axis.
+        for q2 = linspace(1,180,180);   %%% draw verticle line for 180 degree.
+            xv(q2) = cosd(q1)*(L3*cosd(q2+q3) + L2*cosd(q2));
+            yv(q2) = sind(q1)*(L3*cosd(q2+q3) + L2*cosd(q2));
+            zv(q2) = L3*sind(q2+q3)+L2*sind(q2) + L1;
+        
+            loopcntv = loopcntv + 1;     
+            mxv(q1,q2) = xv(q2);  % store x point from for loop to matrix 
+            myv(q1,q2) = yv(q2);  % store y point from for loop to matrix 
+            mzv(q1,q2) = zv(q2);  % store z point from for loop to matrix 
+           
+        end
+end         
+        mxv = mxv(j, : );  % select the data row of matrix mx
+        myv = myv(j, : );  % select the data row of matrix my
+        mzv = mzv(j, : );  % select the data row of matrix mz 
+        mxv1 = reshape(mxv.',1,[]);  % reshape mx matrix to 1x1080
+        myv1 = reshape(myv.',1,[]);
+        mzv1 = reshape(mzv.',1,[]);   
+
+%%%% horizontal line of sphere %%%%
+k = 85:-14:1;
+loopcnth = 0;    %%% set zero counting times horizontal loops
+for jk = 1 : length(k)
+    q2 = k(jk);   %% theta 1 rotate around z-axis   
+        for q1 = linspace(1,360,360)      
+        xh(q1) = cosd(q1)*(L3*cosd(q2+q3) + L2*cosd(q2));
+        yh(q1) = sind(q1)*(L3*cosd(q2+q3) + L2*cosd(q2));
+        zh(q1) = L3*sind(q2+q3)+L2*sind(q2) + L1;
+        
+        loopcnth = loopcnth + 1;    % counting times horizontal loops
+     
+        mxh(q2,q1) = xh(q1);     % store x point from for loop to matrix 180x180
+        myh(q2,q1) = yh(q1);
+        mzh(q2,q1) = zh(q1);
+        end
+end
+        mxh = mxh(k, : );  % select the data row of matrix mhx
+        myh = myh(k, : );  % select the data row of matrix mhy
+        mzh = mzh(k, : );  % select the data row of matrix mhz
+        
+        mxh1 = reshape(mxh.',1,[]);  %%% reshape matrix from 180x180 to 1x2520
+        myh1 = reshape(myh.',1,[]);
+        mzh1 = reshape(mzh.',1,[]); 
+
+%%% merge verticle and horizontal matrix %%%
+x = [mxv1 mxh1];
+y = [myv1 myh1];
+z = [mzv1 mzh1];
+
+figure(1);
+plot3(x,y,z,'.','LineWidth',3)  %% plote half sphere %%
+xlabel('X-axis')  %%% label for plot%%%
+ylabel('Y-axis')
+zlabel('Z-axis')
+title('Half Sphere Draw by Articulated Arm')
+grid on
+
+%%%% save as .csv file %%%%
+position = [x' y' z'];
+dlmwrite('half_sphere_cartesian.csv', position, 'precision', '%.8f', 'newline', 'pc')
+msgbox('Position Half Sphere Saved Completed As File Name: "half_sphere_cartesian.csv"');
+
+%%% ____________________________________________________________________%%%
+
+
+%%% inverse half sphere with articulated arm 3 dof %%%
+
+%%% import sphere position %%%
+position = csvread('half_sphere_cartesian.csv');
+size(position);
+position = position';
+
+%%% reserve space data for speed %%%
+mx = position(1, :);    my = position(2, :);    mz = position(3, :); x = zeros(1,4680);  y = zeros(1,4680);  z = zeros(1,4680);
+d = zeros(1,4680); r = zeros(1,4680); q1 = zeros(1,4680); q2 = zeros(1,4680); q3 = zeros(1,4680); q31 = zeros(1,4680); alpha = zeros(1,4680); beta = zeros(1,4680);
+
+%%% input link length %%%
+L1 = 0; L2 = 5; L3 = 5;
+
+loopcnth = 0;
+for i = 1 : 4580
+        x(i) = mx(i); y(i) = my(i); z(i) = mz(i); 
+        
+        if i <= 2160    %%% change qudrant for verticle line %%%
+            if mod(fix(i/90),2) == 0   %%% check every 90 degree change +/- %%%
+                m = 1;     
+            else
+                m = -1;
+            end
+        else
+             m = -1;
+        
+        %%% inverse cartesian to theta verticle line %%%
+        alpha(i) = m*sqrt(x(i)^2 + y(i)^2);
+        beta(i) = (alpha(i)^2 + z(i)^2 + L2^2 + L3^2)/(2*L2);
+        q1(i) = (atan2(y(i),x(i)))*180/pi;
+        q2(i) = (atan2(beta(i),real(sqrt(z(i)^2 + alpha(i)^2 - beta(i)^2))) - atan2(alpha(i),z(i)))*180/pi;
+        q31(i) = (atan2((z(i)-(L2*sind(q2(i)))),(alpha(i)-(L2*cosd(q2(i))))))*180/pi;
+        q3(i) = q31(i) - q2(i);
+        end
+                        
+        %%% inverse cartesian to theta horizontal line %%%
+        alpha(i) = m*sqrt(x(i)^2 + y(i)^2);
+        beta(i) = (alpha(i)^2 + z(i)^2 + L2^2 + L3^2)/(2*L2);
+        q1(i) = atan2(y(i),x(i))*180/pi;
+        q2(i) = (atan2(beta(i),real(sqrt(z(i)^2 + alpha(i)^2 - beta(i)^2))) - atan2(alpha(i),z(i)))*180/pi;
+        q31(i) = (atan2((z(i)-(L2*sind(q2(i)))),(alpha(i)-(L2*cosd(q2(i))))))*180/pi;
+        q3(i) = q31(i) - q2(i);
+        
+        %%% change degree into 0 - 360 degree %%% 
+        q1(i) = q1(i) + (q1(i) < 0)*360;
+        q3(i) = q3(i) + (q3(i) < 0)*360;
+        q2(i) = q2(i) + (q2(i) < 0)*360;
+        
+        loopcnth = loopcnth + 1;
+end
+
+%%% plot degree and position of articulated arm %%%
+t = linspace(1,4680,4680);
+figure(2);
+plot(t,q1,'.', t,q2,'r.', t,q3,'g.');  %%% define point format %%%
+
+%%% graph label %%%
+ylabel('Degree')
+xlabel('Position') 
+legend('Theta Q1','Theta Q2','Theta Q3')
+title('Degree and Position')
+grid on
+axis([0,4680, 0,359])
+
+%%%% end thank you %%%%
